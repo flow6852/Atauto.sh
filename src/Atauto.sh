@@ -159,9 +159,8 @@ function EXECHECK(){
 	INPUTFILE=${INPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
 	OUTPUTFILE=${OUTPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
 	for ((i=1; i <=$(ls -l $INPUTFILE | grep input | wc -l); i++)) ; do
-		EXETMP=$EXE < $INPUTFILE/input$i.txt > checktemplate.txt
 		tleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
-		$EXETMP 2>&1> /dev/null &
+		$EXE < $INPUTFILE/input$i.txt > checktemplate.txt &
 		sleep 2
 		btleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
 		tlepid=$(join -v 1 <(echo "$btleprocess") <(echo "$tleprocess"))
@@ -170,9 +169,6 @@ function EXECHECK(){
 			echo "TLE"
 			continue
 		fi
-		#if [[ $? != 0 ]] ; then
-		#	echo "RE"
-		#fi
 		diff checktemplate.txt $OUTPUTFILE/output$i.txt
 		if [[ $? != 0 ]] ; then 
 			echo "WA"
