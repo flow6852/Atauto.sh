@@ -61,17 +61,33 @@ function READFILE(){
 }
 
 function SCRAPING(){
-	if [[ $(echo $URL | grep "tasks") = "" ]] ; then
-		echo "input tasks url."
-		exit 7
-	fi
 	rm -rf $INPUTDIR/* $OUTPUTDIR/*
 	if [[ $(echo $URL | grep "atcoder") != "" ]] ; then
+		if [[ $(echo $URL | grep "tasks") = "" ]] ; then
+			echo "input tasks url."
+			exit 7
+		fi
 		curl -o baseurl.txt $URL
 		URLTOP=https://atcoder.jp
 
 		for ((i=1;i<=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=$i 'NR==n')
+			STRN=$(echo ${STR%\'*})
+			curl -o curl_get_problem.txt $URLTOP${STRN#*\'}
+			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
+			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
+		done
+	fi
+	if [[ $(echo $URL | grep "not-522") != "" ]] ; then 
+		if [[ $(echo $URL | grep "contest") = "" ]] ; then
+			echo "input tasks url."
+			exit 7
+		fi
+		curl -o baseurl.txt $URL
+		URLTOP=https://atcoder.jp
+
+		for ((i=1;i<=$(cat baseurl.txt | grep $URLTOP | wc -l);i++)) ; do
+			STR=$(cat baseurl.txt | grep $URLTOP | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\'*})
 			curl -o curl_get_problem.txt $URLTOP${STRN#*\'}
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
@@ -105,8 +121,6 @@ function EXE (){
 		COMMAND="make"
 		COMMANDSTR="make"
 	fi
-	echo "$COMMANDSTR"
-	echo "$EXE"
 }
 
 #editor
@@ -144,19 +158,24 @@ function EXECHECK(){
 	fi
 	INPUTFILE=${INPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
 	OUTPUTFILE=${OUTPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
-
 	for ((i=1; i <=$(ls -l $INPUTFILE | grep input | wc -l); i++)) ; do
-		$EXE < $INPUTFILE/input$i.txt > checktemplate.txt 
-		if [[ $? != 0 ]] ; then
-			echo "RE"
+		EXETMP=$EXE < $INPUTFILE/input$i.txt > checktemplate.txt
+		tleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
+		$EXETMP 2>&1> /dev/null &
+		sleep 2
+		btleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
+		tlepid=$(join -v 1 <(echo "$btleprocess") <(echo "$tleprocess"))
+		if [[ $tlepid != "" ]] ; then 
+			kill -15 $tlepid
+			echo "TLE"
+			continue
 		fi
+		#if [[ $? != 0 ]] ; then
+		#	echo "RE"
+		#fi
 		diff checktemplate.txt $OUTPUTFILE/output$i.txt
 		if [[ $? != 0 ]] ; then 
 			echo "WA"
-			echo "your sourses output."
-			cat checktemplate.txt
-			echo "correct answer"
-			cat $OUTPUTFILE/output$i.txt
 		else
 			echo "AC"
 		fi
