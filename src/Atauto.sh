@@ -62,13 +62,13 @@ function READFILE(){
 
 function SCRAPING(){
 	rm -rf $INPUTDIR/* $OUTPUTDIR/*
+	URLTOP=https://atcoder.jp/contests
 	if [[ $(echo $URL | grep "atcoder") != "" ]] ; then
 		if [[ $(echo $URL | grep "tasks") = "" ]] ; then
 			echo "input tasks url."
 			exit 7
 		fi
 		curl -o baseurl.txt $URL
-		URLTOP=https://atcoder.jp
 
 		for ((i=1;i<=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=$i 'NR==n')
@@ -84,12 +84,11 @@ function SCRAPING(){
 			exit 7
 		fi
 		curl -o baseurl.txt $URL
-		URLTOP=https://atcoder.jp
-
 		for ((i=1;i<=$(cat baseurl.txt | grep $URLTOP | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep $URLTOP | awk -v n=$i 'NR==n')
-			STRN=$(echo ${STR%\'*})
-			curl -o curl_get_problem.txt $URLTOP${STRN#*\'}
+			STRN=$(echo ${STR%\" target*})
+			curl -o curl_get_problem.txt ${STRN#*\"}
+
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 		done
@@ -160,7 +159,7 @@ function EXECHECK(){
 	OUTPUTFILE=${OUTPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
 	for ((i=1; i <=$(ls -l $INPUTFILE | grep input | wc -l); i++)) ; do
 		tleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
-		$EXE < $INPUTFILE/input$i.txt > checktemplate.txt &
+		$EXE < $INPUTFILE/input$i.txt > checktemplate.txt & #moutyotto kireini yaritai
 		sleep 2
 		btleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
 		tlepid=$(join -v 1 <(echo "$btleprocess") <(echo "$tleprocess"))

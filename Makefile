@@ -12,6 +12,13 @@ install:
 	mv $(SUBCMD) $(INSDIR)
 	echo "...installed"
 
+reinstall:
+	cp src/$(TARGET) $(INSDIR)/$(TARGET)
+	cp confs/* $(HOME)/.config/Atauto
+	gcc -Wall -o $(SUBCMD) src/$(SUBC)
+	mv $(SUBCMD) $(INSDIR)
+	echo "...reinstalled"
+	
 uninstall:
 	rm $(INSDIR)/$(SUBCMD) $(INSDIR)/$(TARGET)
 	rm -rf $(HOME)/.config/Atauto
