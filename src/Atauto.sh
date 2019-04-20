@@ -57,28 +57,39 @@ function READFILE(){
 		fi
 	check="0"
 	fi
+	rm -rf $INPUTDIR/* $OUTPUTDIR/*
 	SCRAPING $URL
 }
 
 function SCRAPING(){
-	rm -rf $INPUTDIR/* $OUTPUTDIR/*
-	URLTOP=https://atcoder.jp/contests
+	
+	URLTOP=https://atcoder.jp
 	if [[ $(echo $URL | grep "atcoder") != "" ]] ; then
 		if [[ $(echo $URL | grep "tasks") = "" ]] ; then
 			echo "input tasks url."
 			exit 7
 		fi
-		curl -o baseurl.txt $URL
+		u=$(cat ${CONFIG}.user.conf | awk 'NR==1')
+		p=$(cat ${CONFIG}.user.conf | awk 'NR==2')
+		CSRFF=$(curl --cookie-jar ${CONFIG}.cookie https://atcoder.jp/login | grep csrf_token)
+		CSRFS=${CSRFF#*value=\'}
+		CSRFT=${CSRFS%\'*}
+		CSRFY=${CSRFT//\&\#43/+}
+		echo $(curl -S -X POST https://atcoder.jp/login -F "username=${u}" -F "password=${p}" -F "csrf_token=${CSRFY//\;/}" --cookie ${CONFIG}.cookie --cookie-jar ${CONFIG}.cookie.log -f)
+		if [[ $? != 0 ]] ; then 
+			echo "curl error"
+			exit 22
+		fi	
+		curl --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL
 
 		for ((i=1;i<=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\'*})
-			curl -o curl_get_problem.txt $URLTOP${STRN#*\'}
+			curl --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'}
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 		done
-	fi
-	if [[ $(echo $URL | grep "not-522") != "" ]] ; then 
+	elif [[ $(echo $URL | grep "not-522") != "" ]] ; then 
 		if [[ $(echo $URL | grep "contest") = "" ]] ; then
 			echo "input tasks url."
 			exit 7
@@ -88,7 +99,6 @@ function SCRAPING(){
 			STR=$(cat baseurl.txt | grep $URLTOP | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\" target*})
 			curl -o curl_get_problem.txt ${STRN#*\"}
-
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 		done
@@ -98,7 +108,7 @@ function SCRAPING(){
 
 #conf->command,execution. maybe change
 function INDIRECTEXPANTION(){
-	RETTMP=$(cat $CONFIG/$1 | grep $2)
+	RETTMP=$(cat $CONFIG$1 | grep $2)
 	RETTMPS=$(echo ${RETTMP#*=})
 	ARG3=$3
 	TMP3='$ARG3'
