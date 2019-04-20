@@ -8,6 +8,7 @@ OUTPUTDIR=./output/
 CONFIG=$HOME/.config/Atauto/
 A=$(printf "%x" $(printf "%d" \'A))
 a=$(printf "%x" $(printf "%d" \'a))
+dataTaskScreenName=()
 
 #-h text
 function HELPCMD(){
@@ -71,34 +72,37 @@ function SCRAPING(){
 		fi
 		u=$(cat ${CONFIG}.user.conf | awk 'NR==1')
 		p=$(cat ${CONFIG}.user.conf | awk 'NR==2')
-		CSRFF=$(curl --cookie-jar ${CONFIG}.cookie https://atcoder.jp/login | grep csrf_token)
+		CSRFF=$(curl --cookie-jar ${CONFIG}.cookie https://atcoder.jp/login | grep csrf_token &>/dev/null)
 		CSRFS=${CSRFF#*value=\'}
 		CSRFT=${CSRFS%\'*}
 		CSRFY=${CSRFT//\&\#43/+}
-		echo $(curl -S -X POST https://atcoder.jp/login -F "username=${u}" -F "password=${p}" -F "csrf_token=${CSRFY//\;/}" --cookie ${CONFIG}.cookie --cookie-jar ${CONFIG}.cookie.log -f)
+		echo $(curl -S -X POST https://atcoder.jp/login -F "username=${u}" -F "password=${p}" -F "csrf_token=${CSRFY//\;/}" --cookie ${CONFIG}.cookie --cookie-jar ${CONFIG}.cookie.log -f &> /dev/null)
 		if [[ $? != 0 ]] ; then 
 			echo "curl error"
 			exit 22
 		fi	
-		curl --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL
+		curl --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL &> /dev/null
 
 		for ((i=1;i<=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\'*})
-			curl --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'}
+			curl --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'} &> /dev/null
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
+			GTASK=${STRN#*/}
+			dataTaskScreenName+=(${GTASK#*tasks/})
 		done
+		SUBMITURL=${URL%/*}/submit
 	elif [[ $(echo $URL | grep "not-522") != "" ]] ; then 
 		if [[ $(echo $URL | grep "contest") = "" ]] ; then
 			echo "input tasks url."
 			exit 7
 		fi
-		curl -o baseurl.txt $URL
+		curl -o baseurl.txt $URL &> /dev/null &> /dev/null
 		for ((i=1;i<=$(cat baseurl.txt | grep $URLTOP | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep $URLTOP | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\" target*})
-			curl -o curl_get_problem.txt ${STRN#*\"}
+			curl -o curl_get_problem.txt ${STRN#*\"} &> /dev/null
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 		done
@@ -167,7 +171,7 @@ function EXECHECK(){
 	fi
 	INPUTFILE=${INPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
 	OUTPUTFILE=${OUTPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
-	for ((i=1; i <=$(ls -l $INPUTFILE | grep input | wc -l); i++)) ; do
+	for ((i=1,j=1; i <=$(ls -l $INPUTFILE | grep input | wc -l); i++)) ; do
 		tleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
 		$EXE < $INPUTFILE/input$i.txt > checktemplate.txt & #moutyotto kireini yaritai
 		sleep 2
@@ -183,9 +187,22 @@ function EXECHECK(){
 			echo "WA"
 		else
 			echo "AC"
+			j=$((++j))
 		fi
 	done	
 	rm checktemplate.txt
+	if [[ $i = $j ]] ; then
+		echo "All testcase is ok. submit?(y/N)"
+		read submitcheck
+		if [[ $submitcheck = "y" ]] ; then 
+			echo $(curl -S -X POST ${SUBMITURL} \
+				-F "data.TaskScreenName=${dataTaskScreenName[$(printf "%x" $(printf "%d" \'$abcd)) - $a]}" \
+				-F "data.LanguageId=3014" \
+				-F "csrf_token=${CSRFY//\;/}" \
+				-F "sourceCode=$(cat $FILE)" \
+				--cookie ${CONFIG}.cookie.log -f &> /dev/null)
+		fi
+	fi
 	unset INPUTFILE
 	unset OUTPUTFILE
 }
@@ -196,7 +213,6 @@ function LOOPSUB(){
 	echo "compile"
 	$COMMAND
 	comp=$?
-	echo "$comp"
 	if [ "$comp" == "0" ] ; then
 		EXECHECK
 	fi
@@ -229,6 +245,7 @@ function LAST(){
 			return
 		fi
 	fi
+	rm ${CONFIG}.cookie ${CONFIG}.cookie.log
 	EXECHECK
 	echo "finish."
 }
