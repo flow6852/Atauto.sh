@@ -72,21 +72,21 @@ function SCRAPING(){
 		fi
 		u=$(cat ${CONFIG}.user.conf | awk 'NR==1')
 		p=$(cat ${CONFIG}.user.conf | awk 'NR==2')
-		CSRFF=$(curl --cookie-jar ${CONFIG}.cookie https://atcoder.jp/login | grep csrf_token &>/dev/null)
+		CSRFF=$(curl --cookie-jar ${CONFIG}.cookie https://atcoder.jp/login | grep csrf_token)
 		CSRFS=${CSRFF#*value=\'}
 		CSRFT=${CSRFS%\'*}
 		CSRFY=${CSRFT//\&\#43/+}
-		echo $(curl -S -X POST https://atcoder.jp/login -F "username=${u}" -F "password=${p}" -F "csrf_token=${CSRFY//\;/}" --cookie ${CONFIG}.cookie --cookie-jar ${CONFIG}.cookie.log -f &> /dev/null)
+		echo $(curl -S -X POST https://atcoder.jp/login -F "username=${u}" -F "password=${p}" -F "csrf_token=${CSRFY//\;/}" --cookie ${CONFIG}.cookie --cookie-jar ${CONFIG}.cookie.log -f)
 		if [[ $? != 0 ]] ; then 
 			echo "curl error"
 			exit 22
 		fi	
-		curl --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL &> /dev/null
+		curl --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL
 
 		for ((i=1;i<=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\'*})
-			curl --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'} &> /dev/null
+			curl --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'}
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 			GTASK=${STRN#*/}
@@ -98,11 +98,11 @@ function SCRAPING(){
 			echo "input tasks url."
 			exit 7
 		fi
-		curl -o baseurl.txt $URL &> /dev/null &> /dev/null
+		curl -o baseurl.txt $URL
 		for ((i=1;i<=$(cat baseurl.txt | grep $URLTOP | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep $URLTOP | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\" target*})
-			curl -o curl_get_problem.txt ${STRN#*\"} &> /dev/null
+			curl -o curl_get_problem.txt ${STRN#*\"}
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 		done
@@ -200,7 +200,7 @@ function EXECHECK(){
 				-F "data.LanguageId=3014" \
 				-F "csrf_token=${CSRFY//\;/}" \
 				-F "sourceCode=$(cat $FILE)" \
-				--cookie ${CONFIG}.cookie.log -f &> /dev/null)
+				--cookie ${CONFIG}.cookie.log -f)
 		fi
 	fi
 	unset INPUTFILE
