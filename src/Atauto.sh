@@ -139,27 +139,38 @@ function EXE (){
 
 #editor
 function STARTEDITOR(){
+	touch $FULL
+	touch $TEST
 	if [ "$EDITOR" == "emacs" ] ; then
-		touch $FULL
-			pid=`ps -ef | grep "$EDITOR $FILE" | grep -v grep | awk '{print $2}'`
-			if [ -z "$pid" ] ; then
+		pid=`ps -ef | grep "$EDITOR $FILE" | grep -v grep | awk '{print $2}'`
+		if [ -z "$pid" ] ; then
 			fprocess=`ps --no-heading -C $EDITOR -o pid`
 			$EDITOR $FULL &
 			bprocess=`ps --no-heading -C $EDITOR -o pid`
 			pid=$(join -v 1 <(echo "$bprocess") <(echo "$fprocess"))
+			sprocess=`ps --no-heading -C $EDITOR -o pid`
+			$EDITOR $TEST &
+			kprocess=`ps --no-heading -C $EDITOR -o pid`
+			testpid=$(join -v 1 <(echo "$kprocess") <(echo "$sprocess"))
    		fi
 		before=`ls --full-time $FULL | awk '{print $6" - "$7}'`
+		testbefore=`ls --full-time $TEST | awk '{print $6" - "$7}'`
+		
 	fi
 	if [ "$EDITOR" == "vim" ] ; then
-		touch $FULL
-			pid=`ps -ef | grep "$EDITOR $FILE" | grep -v grep | awk '{print $2}'`
-			if [ -z "$pid" ] ; then
+		pid=`ps -ef | grep "$EDITOR $FILE" | grep -v grep | awk '{print $2}'`
+		if [ -z "$pid" ] ; then
 			fprocess=`ps --no-heading -C xterm -o pid`
 			xterm -bg black -fg white -e vim $FULL &
 			bprocess=`ps --no-heading -C xterm -o pid`
 			pid=$(join -v 1 <(echo "$bprocess") <(echo "$fprocess"))
+			sprocess=`ps --no-heading -C xterm -o pid`
+			xterm -bg black -fg white -e vim $TEST &
+			kprocess=`ps --no-heading -C xterm -o pid`
+			testpid=$(join -v 1 <(echo "$kprocess") <(echo "$sprocess"))
    		fi
 		before=`ls --full-time $FULL | awk '{print $6" - "$7}'`
+		testbefore=`ls --full-time $TEST | awk '{print $6" - "$7}'`
 	fi
 }
 
@@ -218,14 +229,16 @@ function EXECHECK(){
 
 function LOOPSUB(){
 	now=`ls --full-time $FULL | awk '{print $6" - "$7}'`
-	if [ "$now" != "$before" ] ; then
-	echo "compile"
-	$COMMAND
-	comp=$?
-	if [ "$comp" == "0" ] ; then
-		EXECHECK
-	fi
-	before=$now
+	testnow=`ls --full-time $TEST | awk '{print $6" - "$7}'`
+	if [ "$now" != "$before" -o "$testnow" != "$testbefore" ] ; then
+		echo "compile"
+		$COMMAND
+		comp=$?
+		if [ "$comp" == "0" ] ; then
+			EXECHECK
+		fi
+		before=$now
+		testbefore=$testnow
 	fi
 }
 
@@ -239,6 +252,7 @@ function LOOPCMP(){
 	LOOPSUB
 	sleep $INTERVAL
 	pid=`ps -p $pid --no-heading | grep -v grep | awk '{print $1}'`
+	testpid=`ps -p $testpid --no-heading | grep -v grep | awk '{print $1}'`
 	done
 }
 
@@ -254,6 +268,7 @@ function LAST(){
 			return
 		fi
 	fi
+	kill -15 $testpid
 	rm ${CONFIG}.cookie ${CONFIG}.cookie.log
 	EXECHECK
 	echo "finish."
