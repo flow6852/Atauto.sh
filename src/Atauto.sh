@@ -2,6 +2,7 @@
 
 INTERVAL=1
 FILE=$1
+TEST=test.txt
 URL=$2
 INPUTDIR=./input/
 OUTPUTDIR=./output/
@@ -81,12 +82,12 @@ function SCRAPING(){
 			echo "curl error"
 			exit 22
 		fi	
-		curl --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL
+		curl -s --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL
 
 		for ((i=1;i<=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\'*})
-			curl --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'}
+			curl -s --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'}
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 			GTASK=${STRN#*/}
@@ -102,7 +103,7 @@ function SCRAPING(){
 		for ((i=1;i<=$(cat baseurl.txt | grep $URLTOP | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep $URLTOP | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\" target*})
-			curl -o curl_get_problem.txt ${STRN#*\"}
+			curl -s -o curl_get_problem.txt ${STRN#*\"}
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 		done
@@ -162,36 +163,44 @@ function STARTEDITOR(){
 	fi
 }
 
+function TLECHECK(){
+	tleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
+	$EXE < $1 > checktemplate.txt & #moutyotto kireini yaritai
+	sleep 2
+	btleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
+	tlepid=$(join -v 1 <(echo "$btleprocess") <(echo "$tleprocess"))
+	if [[ $tlepid != "" ]] ; then 
+		kill -15 $tlepid
+		echo "TLE"
+		continue
+	fi
+}
+
 #loop
 function EXECHECK(){
-	echo "Which is the problem? if you don't input,don't running.[a-$(printf "\x$(($a + $(ls -1 ./input/ | wc -l) -1))")]"
+	echo "Which is the problem? if you don't input,don't running.[a-$(printf "\x$(($a + $(ls -1 ./input/ | wc -l) -1))"),test]"
 	read abcd
 	if [[ $abcd = "" ]] ; then 
 		return
+	elif [[ $abcd = "test" ]] ; then
+		TLECHECK $TEST
+		cat checktemplate.txt
+	else	
+		INPUTFILE=${INPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
+		OUTPUTFILE=${OUTPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
+		for ((i=1,j=1; i <=$(ls -l $INPUTFILE | grep input | wc -l); i++)) ; do
+			TLECHECK $INPUTFILE/input$i.txt 
+			diff checktemplate.txt $OUTPUTFILE/output$i.txt
+			if [[ $? != 0 ]] ; then 
+				echo "WA"
+			else
+				echo "AC"
+				j=$((++j))
+			fi
+		done	
 	fi
-	INPUTFILE=${INPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
-	OUTPUTFILE=${OUTPUTDIR}$(printf "\x$(($A + $(printf "%x" $(printf "%d" \'$abcd)) - $a))")
-	for ((i=1,j=1; i <=$(ls -l $INPUTFILE | grep input | wc -l); i++)) ; do
-		tleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
-		$EXE < $INPUTFILE/input$i.txt > checktemplate.txt & #moutyotto kireini yaritai
-		sleep 2
-		btleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
-		tlepid=$(join -v 1 <(echo "$btleprocess") <(echo "$tleprocess"))
-		if [[ $tlepid != "" ]] ; then 
-			kill -15 $tlepid
-			echo "TLE"
-			continue
-		fi
-		diff checktemplate.txt $OUTPUTFILE/output$i.txt
-		if [[ $? != 0 ]] ; then 
-			echo "WA"
-		else
-			echo "AC"
-			j=$((++j))
-		fi
-	done	
 	rm checktemplate.txt
-	if [[ $i = $j ]] ; then
+	if [[ $i = $j || $abcd = "test" ]] ; then
 		echo "All testcase is ok. submit?(y/N)"
 		read submitcheck
 		if [[ $submitcheck = "y" ]] ; then 
