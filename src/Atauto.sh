@@ -10,6 +10,7 @@ CONFIG=$HOME/.config/Atauto/
 A=$(printf "%x" $(printf "%d" \'A))
 a=$(printf "%x" $(printf "%d" \'a))
 dataTaskScreenName=()
+SUBMITURL=()
 
 #-h text
 function HELPCMD(){
@@ -65,23 +66,25 @@ function READFILE(){
 
 function SCRAPING(){
 	
-	URLTOP=https://atcoder.jp
+	u=$(cat ${CONFIG}.user.conf | awk 'NR==1')
+	p=$(cat ${CONFIG}.user.conf | awk 'NR==2')
+	CSRFF=$(curl --cookie-jar ${CONFIG}.cookie https://atcoder.jp/login | grep csrf_token)
+	CSRFS=${CSRFF#*value=\'}
+	CSRFT=${CSRFS%\'*}
+	CSRFY=${CSRFT//\&\#43/+}
+	echo $(curl -sS -X POST https://atcoder.jp/login -F "username=${u}" -F "password=${p}" -F "csrf_token=${CSRFY//\;/}" --cookie ${CONFIG}.cookie --cookie-jar ${CONFIG}.cookie.log -f)
+	if [[ $? != 0 ]] ; then 
+		echo "curl error"
+		exit 22
+	fi	
+
+	#for atcoder.jp
 	if [[ $(echo $URL | grep "atcoder") != "" ]] ; then
+		URLTOP=https://atcoder.jp
 		if [[ $(echo $URL | grep "tasks") = "" ]] ; then
 			echo "input tasks url."
 			exit 7
 		fi
-		u=$(cat ${CONFIG}.user.conf | awk 'NR==1')
-		p=$(cat ${CONFIG}.user.conf | awk 'NR==2')
-		CSRFF=$(curl --cookie-jar ${CONFIG}.cookie https://atcoder.jp/login | grep csrf_token)
-		CSRFS=${CSRFF#*value=\'}
-		CSRFT=${CSRFS%\'*}
-		CSRFY=${CSRFT//\&\#43/+}
-		echo $(curl -S -X POST https://atcoder.jp/login -F "username=${u}" -F "password=${p}" -F "csrf_token=${CSRFY//\;/}" --cookie ${CONFIG}.cookie --cookie-jar ${CONFIG}.cookie.log -f)
-		if [[ $? != 0 ]] ; then 
-			echo "curl error"
-			exit 22
-		fi	
 		curl -s --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL
 
 		for ((i=1;i<=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l);i++)) ; do
@@ -92,20 +95,25 @@ function SCRAPING(){
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 			GTASK=${STRN#*/}
 			dataTaskScreenName+=(${GTASK#*tasks/})
+			SUBMITURL+=(${URL%/*}submit)
 		done
-		SUBMITURL=${URL%/*}/submit
+	# for vatual
 	elif [[ $(echo $URL | grep "not-522") != "" ]] ; then 
+		URLTOP=https://atcoder.jp/contests
 		if [[ $(echo $URL | grep "contest") = "" ]] ; then
 			echo "input tasks url."
 			exit 7
 		fi
-		curl -o baseurl.txt $URL
+		curl -s -o baseurl.txt $URL
 		for ((i=1;i<=$(cat baseurl.txt | grep $URLTOP | wc -l);i++)) ; do
 			STR=$(cat baseurl.txt | grep $URLTOP | awk -v n=$i 'NR==n')
 			STRN=$(echo ${STR%\" target*})
 			curl -s -o curl_get_problem.txt ${STRN#*\"}
 			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
+			GTASK=${STRN#*/}
+			dataTaskScreenName+=(${GTASK#*tasks/})
+			SUBMITURL+=(https:/${GTASK%tasks/*}submit)
 		done
 	fi
 	rm baseurl.txt curl_get_problem.txt
@@ -215,7 +223,7 @@ function EXECHECK(){
 		echo "All testcase is ok. submit?(y/N)"
 		read submitcheck
 		if [[ $submitcheck = "y" ]] ; then 
-			echo $(curl -S -X POST ${SUBMITURL} \
+			echo $(curl -sS -X POST ${SUBMITURL[$(printf "%x" $(printf "%d" \'$abcd)) - $a]} \
 				-F "data.TaskScreenName=${dataTaskScreenName[$(printf "%x" $(printf "%d" \'$abcd)) - $a]}" \
 				-F "data.LanguageId=3014" \
 				-F "csrf_token=${CSRFY//\;/}" \
@@ -269,7 +277,7 @@ function LAST(){
 		fi
 	fi
 	kill -15 $testpid
-	rm ${CONFIG}.cookie ${CONFIG}.cookie.log
+	rm ${CONFIG}.cookie ${CONFIG}.cookie.log &> /dev/null
 	EXECHECK
 	echo "finish."
 }
