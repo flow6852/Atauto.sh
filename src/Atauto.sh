@@ -95,7 +95,7 @@ function SCRAPING(){
 			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
 			GTASK=${STRN#*/}
 			dataTaskScreenName+=(${GTASK#*tasks/})
-			SUBMITURL+=(${URL%/*}submit)
+			SUBMITURL+=(${URL%/*}/submit)
 		done
 	# for vatual
 	elif [[ $(echo $URL | grep "not-522") != "" ]] ; then 
@@ -105,15 +105,22 @@ function SCRAPING(){
 			exit 7
 		fi
 		curl -s -o baseurl.txt $URL
-		for ((i=1;i<=$(cat baseurl.txt | grep $URLTOP | wc -l);i++)) ; do
-			STR=$(cat baseurl.txt | grep $URLTOP | awk -v n=$i 'NR==n')
+		max=$(cat baseurl.txt | grep $URLTOP | wc -l)
+		AZCount=1
+		for i in {A..Z} ; do
+			if [[ ${AZCount} -gt $max ]] ; then
+				break;
+			fi
+			
+			STR=$(cat baseurl.txt | grep $URLTOP | awk -v n=${AZCount} 'NR==n')
 			STRN=$(echo ${STR%\" target*})
 			curl -s -o curl_get_problem.txt ${STRN#*\"}
-			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
-			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
+			mkdir ${INPUTDIR}${i} ${OUTPUTDIR}${i}
+			$HOME/.local/bin/get_testcase curl_get_problem.txt ${AZCount}
 			GTASK=${STRN#*/}
 			dataTaskScreenName+=(${GTASK#*tasks/})
 			SUBMITURL+=(https:/${GTASK%tasks/*}submit)
+			AZCount=$(($AZCount + 1))
 		done
 	fi
 	rm baseurl.txt curl_get_problem.txt
@@ -183,16 +190,27 @@ function STARTEDITOR(){
 }
 
 function TLECHECK(){
-	tleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
-	$EXE < $1 > checktemplate.txt & #moutyotto kireini yaritai
-	sleep 2
-	btleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
-	tlepid=$(join -v 1 <(echo "$btleprocess") <(echo "$tleprocess"))
-	if [[ $tlepid != "" ]] ; then 
-		kill -15 $tlepid
-		echo "TLE"
+	sh -c "${EXE} < ${1} > checktemplate.txt" &
+	shid=$!
+	sh -c "sleep 2 ; ps --ppid ${shid} --no-headers -o pid | xargs kill -9 ; kill -9 ${shid}" &
+	sleepid=$!
+	wait ${shid}
+	if [[ $? != 0 ]] ; then 
+		echo TLE
 		continue
+	else
+		kill -9 ${sleepid} &> /dev/null
 	fi
+#	tleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
+#	$EXE < $1 > checktemplate.txt & #moutyotto kireini yaritai
+#	sleep 2
+#	btleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
+#	tlepid=$(join -v 1 <(echo "$btleprocess") <(echo "$tleprocess"))
+#	if [[ $tlepid != "" ]] ; then 
+#		kill -15 $tlepid
+#		echo "TLE"
+#		continue
+#	fi
 }
 
 #loop
@@ -222,7 +240,7 @@ function EXECHECK(){
 	if [[ $i = $j || $abcd = "test" ]] ; then
 		echo "All testcase is ok. submit?(y/N)"
 		read submitcheck
-		if [[ $submitcheck = "y" ]] ; then 
+		if [[ $submitcheck = "y" ]] ; then
 			echo $(curl -sS -X POST ${SUBMITURL[$(printf "%x" $(printf "%d" \'$abcd)) - $a]} \
 				-F "data.TaskScreenName=${dataTaskScreenName[$(printf "%x" $(printf "%d" \'$abcd)) - $a]}" \
 				-F "data.LanguageId=3014" \
