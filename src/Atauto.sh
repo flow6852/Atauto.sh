@@ -86,16 +86,21 @@ function SCRAPING(){
 			exit 7
 		fi
 		curl -s --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL
-
-		for ((i=1;i<=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l);i++)) ; do
-			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=$i 'NR==n')
+		max = $(cat baseurl.txt | grep "<td class=\"text-center" | wc -l)
+		AZCount=1
+		for i in {A..Z} ; do
+			if [[ ${AZCount} -gt $max ]] ; then
+				break;
+			fi
+			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=${AZCount} 'NR==n')
 			STRN=$(echo ${STR%\'*})
 			curl -s --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'}
-			mkdir $INPUTDIR$(printf "\x$(($A + $i - 1))") $OUTPUTDIR$(printf "\x$(($A + $i - 1))")
-			$HOME/.local/bin/get_testcase curl_get_problem.txt $i
+			mkdir $INPUTDIR${i} $OUTPUTDIR${i}
+			$HOME/.local/bin/get_testcase curl_get_problem.txt ${AZCount}
 			GTASK=${STRN#*/}
 			dataTaskScreenName+=(${GTASK#*tasks/})
 			SUBMITURL+=(${URL%/*}/submit)
+			AZCount=$((${AZCount} + 1))
 		done
 	# for vatual
 	elif [[ $(echo $URL | grep "not-522") != "" ]] ; then 
@@ -144,6 +149,8 @@ function EXE (){
 			COMMANDSTR=$(echo ${TMP})
 			TMP=`INDIRECTEXPANTION $i "execution" ${FILENAME%.*}`
 			EXE=$(echo ${TMP})
+			TMP=$(cat ${CONFIG}${i} | grep "langid")
+			LangID=$(echo ${TMP#*=})
 		fi
 	done
 	if [ -e "Makefile" ] ; then
@@ -201,17 +208,6 @@ function TLECHECK(){
 	else
 		kill -9 ${sleepid} &> /dev/null
 	fi
-#	tleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
-#	$EXE < $1 > checktemplate.txt & #moutyotto kireini yaritai
-#	sleep 2
-#	btleprocess=$(ps --no-heading -C ${EXE#*/} -o pid)
-#	tlepid=$(join -v 1 <(echo "$btleprocess") <(echo "$tleprocess"))
-#	if [[ $tlepid != "" ]] ; then 
-#		kill -15 $tlepid
-#		echo "TLE"
-#		continue
-#	fi
-}
 
 #loop
 function EXECHECK(){
@@ -243,7 +239,7 @@ function EXECHECK(){
 		if [[ $submitcheck = "y" ]] ; then
 			echo $(curl -sS -X POST ${SUBMITURL[$(printf "%x" $(printf "%d" \'$abcd)) - $a]} \
 				-F "data.TaskScreenName=${dataTaskScreenName[$(printf "%x" $(printf "%d" \'$abcd)) - $a]}" \
-				-F "data.LanguageId=3014" \
+				-F "data.LanguageId=${LangID}" \
 				-F "csrf_token=${CSRFY//\;/}" \
 				-F "sourceCode=$(cat $FILE)" \
 				--cookie ${CONFIG}.cookie.log -f)
