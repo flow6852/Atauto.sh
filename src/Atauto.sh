@@ -86,7 +86,6 @@ function SCRAPING(){
 		fi
 		curl -s --cookie ${CONFIG}.cookie.log -o baseurl.txt ${URL}
 		max=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l)
-		echo "max=$max"
 		AZCount=1
 		for i in {A..Z} ; do
 			if [[ ${AZCount} -gt $max ]] ; then
@@ -94,7 +93,6 @@ function SCRAPING(){
 			fi
 			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=${AZCount} 'NR==n')
 			STRN=$(echo ${STR%\'*})
-			echo ${max} ${STRN#*\'}
 			curl -s --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'}
 			mkdir $INPUTDIR${i} $OUTPUTDIR${i}
 			$HOME/.local/bin/get_testcase curl_get_problem.txt ${AZCount}
