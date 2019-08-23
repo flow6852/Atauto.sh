@@ -65,14 +65,13 @@ function READFILE(){
 }
 
 function SCRAPING(){
-	
 	u=$(cat ${CONFIG}.user.conf | awk 'NR==1')
 	p=$(cat ${CONFIG}.user.conf | awk 'NR==2')
 	CSRFF=$(curl --cookie-jar ${CONFIG}.cookie https://atcoder.jp/login | grep csrf_token)
-	CSRFS=${CSRFF#*value=\'}
-	CSRFT=${CSRFS%\'*}
+	CSRFS=${CSRFF##*value=\"}
+	CSRFT=${CSRFS%\"*}
 	CSRFY=${CSRFT//\&\#43/+}
-	echo $(curl -sS -X POST https://atcoder.jp/login -F "username=${u}" -F "password=${p}" -F "csrf_token=${CSRFY//\;/}" --cookie ${CONFIG}.cookie --cookie-jar ${CONFIG}.cookie.log -f)
+	curl -sS -X POST https://atcoder.jp/login -F "username=${u}" -F "password=${p}" -F "csrf_token=${CSRFY//\;/}" --cookie ${CONFIG}.cookie --cookie-jar ${CONFIG}.cookie.log -f
 	if [[ $? != 0 ]] ; then 
 		echo "curl error"
 		exit 22
@@ -85,8 +84,9 @@ function SCRAPING(){
 			echo "input tasks url."
 			exit 7
 		fi
-		curl -s --cookie ${CONFIG}.cookie.log -o baseurl.txt $URL
-		max = $(cat baseurl.txt | grep "<td class=\"text-center" | wc -l)
+		curl -s --cookie ${CONFIG}.cookie.log -o baseurl.txt ${URL}
+		max=$(cat baseurl.txt | grep "<td class=\"text-center" | wc -l)
+		echo "max=$max"
 		AZCount=1
 		for i in {A..Z} ; do
 			if [[ ${AZCount} -gt $max ]] ; then
@@ -94,6 +94,7 @@ function SCRAPING(){
 			fi
 			STR=$(cat baseurl.txt | grep "<td class=\"text-center" | awk -v n=${AZCount} 'NR==n')
 			STRN=$(echo ${STR%\'*})
+			echo ${max} ${STRN#*\'}
 			curl -s --cookie ${CONFIG}.cookie.log -o curl_get_problem.txt $URLTOP${STRN#*\'}
 			mkdir $INPUTDIR${i} $OUTPUTDIR${i}
 			$HOME/.local/bin/get_testcase curl_get_problem.txt ${AZCount}
@@ -166,14 +167,18 @@ function STARTEDITOR(){
 	if [ "$EDITOR" == "emacs" ] ; then
 		pid=`ps -ef | grep "$EDITOR $FILE" | grep -v grep | awk '{print $2}'`
 		if [ -z "$pid" ] ; then
-			fprocess=`ps --no-heading -C $EDITOR -o pid`
+#			fprocess=`ps --no-heading -C $EDITOR -o pid`
+#			$EDITOR $FULL &
+#			bprocess=`ps --no-heading -C $EDITOR -o pid`
+#			pid=$(join -v 1 <(echo "$bprocess") <(echo "$fprocess"))
+#			sprocess=`ps --no-heading -C $EDITOR -o pid`
+#			$EDITOR $TEST &
+#			kprocess=`ps --no-heading -C $EDITOR -o pid`
+#			testpid=$(join -v 1 <(echo "$kprocess") <(echo "$sprocess"))
 			$EDITOR $FULL &
-			bprocess=`ps --no-heading -C $EDITOR -o pid`
-			pid=$(join -v 1 <(echo "$bprocess") <(echo "$fprocess"))
-			sprocess=`ps --no-heading -C $EDITOR -o pid`
+			pid=$!
 			$EDITOR $TEST &
-			kprocess=`ps --no-heading -C $EDITOR -o pid`
-			testpid=$(join -v 1 <(echo "$kprocess") <(echo "$sprocess"))
+			testpid=$!
    		fi
 		before=`ls --full-time $FULL | awk '{print $6" - "$7}'`
 		testbefore=`ls --full-time $TEST | awk '{print $6" - "$7}'`
@@ -182,14 +187,18 @@ function STARTEDITOR(){
 	if [ "$EDITOR" == "vim" ] ; then
 		pid=`ps -ef | grep "$EDITOR $FILE" | grep -v grep | awk '{print $2}'`
 		if [ -z "$pid" ] ; then
-			fprocess=`ps --no-heading -C xterm -o pid`
-			xterm -bg black -fg white -e vim $FULL &
-			bprocess=`ps --no-heading -C xterm -o pid`
-			pid=$(join -v 1 <(echo "$bprocess") <(echo "$fprocess"))
-			sprocess=`ps --no-heading -C xterm -o pid`
-			xterm -bg black -fg white -e vim $TEST &
-			kprocess=`ps --no-heading -C xterm -o pid`
-			testpid=$(join -v 1 <(echo "$kprocess") <(echo "$sprocess"))
+#			fprocess=`ps --no-heading -C xterm -o pid`
+#			xterm -bg black -fg white -e vim $FULL &
+#			bprocess=`ps --no-heading -C xterm -o pid`
+#			pid=$(join -v 1 <(echo "$bprocess") <(echo "$fprocess"))
+#			sprocess=`ps --no-heading -C xterm -o pid`
+#			xterm -bg black -fg white -e vim $TEST &
+#			kprocess=`ps --no-heading -C xterm -o pid`
+#			testpid=$(join -v 1 <(echo "$kprocess") <(echo "$sprocess"))
+			xterm -e vim $FULL &
+			pid=$!
+			xterm -e vim $TEST &
+			testpid=$!
    		fi
 		before=`ls --full-time $FULL | awk '{print $6" - "$7}'`
 		testbefore=`ls --full-time $TEST | awk '{print $6" - "$7}'`
@@ -197,17 +206,18 @@ function STARTEDITOR(){
 }
 
 function TLECHECK(){
-	sh -c "${EXE} < ${1} > checktemplate.txt" &
-	shid=$!
-	sh -c "sleep 2 ; ps --ppid ${shid} --no-headers -o pid | xargs kill -9 ; kill -9 ${shid}" &
-	sleepid=$!
-	wait ${shid}
+	timeout --preserve-status 2 ${EXE} < ${1} > checktemplate.txt
+	# sh -c "${EXE} < ${1} > checktemplate.txt" &
+	# shid=$!
+	# sh -c "sleep 2 ; ps --ppid ${shid} --no-headers -o pid | xargs kill -9 ; kill -9 ${shid}" &
+	# sleepid=$!
+	# wait ${shid}
 	if [[ $? != 0 ]] ; then 
 		echo TLE
-		continue
 	else
-		kill -9 ${sleepid} &> /dev/null
+	 	kill -9 ${sleepid} &> /dev/null
 	fi
+}
 
 #loop
 function EXECHECK(){
@@ -291,7 +301,7 @@ function LAST(){
 		fi
 	fi
 	kill -15 $testpid
-	rm ${CONFIG}.cookie ${CONFIG}.cookie.log &> /dev/null
+	# rm ${CONFIG}.cookie ${CONFIG}.cookie.log &> /dev/null
 	EXECHECK
 	echo "finish."
 }
