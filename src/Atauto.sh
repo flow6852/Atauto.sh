@@ -6,7 +6,6 @@ TEST=test.txt
 URL=$2
 INPUTDIR=./input/
 OUTPUTDIR=./output/
-CONFIG=$HOME/.config/Atauto/
 A=$(printf "%x" $(printf "%d" \'A))
 a=$(printf "%x" $(printf "%d" \'a))
 dataTaskScreenName=()
@@ -65,8 +64,8 @@ function READFILE(){
 }
 
 function SCRAPING(){
-	u=$(cat ${CONFIG}.user.conf | awk 'NR==1')
-	p=$(cat ${CONFIG}.user.conf | awk 'NR==2')
+	read -p "username: " u
+	read -sp "password: " p
 	CSRFF=$(curl --cookie-jar ${CONFIG}.cookie https://atcoder.jp/login | grep csrf_token)
 	CSRFS=${CSRFF##*value=\"}
 	CSRFT=${CSRFS%\"*}
